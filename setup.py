@@ -50,6 +50,7 @@ setup_args = dict(
         'nbconvert',
         'Send2Trash',
         'terminado>=0.8.3',
+        'torndsession',
         'prometheus_client',
         "pywin32>=1.0 ; sys_platform == 'win32'",
         "anyio>=2.0.2",
