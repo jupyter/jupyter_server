@@ -31,6 +31,11 @@ import urllib
 import inspect
 import pathlib
 
+if sys.version_info >= (3, 9):
+    import importlib.resources as importlib_resources
+else:
+    import importlib_resources
+
 from base64 import encodebytes
 try:
     import resource
@@ -96,6 +101,8 @@ from traitlets import (
     TraitError, Type, Float, observe, default, validate
 )
 from jupyter_core.paths import jupyter_runtime_dir, jupyter_path
+from jupyter_telemetry.eventlog import EventLog
+
 from jupyter_server._sysinfo import get_sys_info
 
 from jupyter_server._tz import utcnow, utcfromtimestamp
@@ -104,7 +111,9 @@ from jupyter_server.utils import (
     check_pid,
     url_escape,
     urljoin,
-    pathname2url
+    pathname2url,
+    get_schema_files,
+    get_client_schema_files
 )
 
 from jupyter_server.extension.serverextension import ServerExtensionApp
@@ -135,6 +144,7 @@ JUPYTER_SERVICE_HANDLERS = dict(
     config=['jupyter_server.services.config.handlers'],
     contents=['jupyter_server.services.contents.handlers'],
     files=['jupyter_server.files.handlers'],
+    eventlog=['jupyter_server.services.eventlog.handlers'],
     kernels=['jupyter_server.services.kernels.handlers'],
     kernelspecs=[
         'jupyter_server.kernelspecs.handlers',
@@ -290,6 +300,7 @@ class ServerWebApplication(web.Application):
             server_root_dir=root_dir,
             jinja2_env=env,
             terminals_available=terminado_available and jupyter_app.terminals_enabled,
+            eventlog=jupyter_app.eventlog,
             serverapp=jupyter_app
         )
 
@@ -613,6 +624,7 @@ class ServerApp(JupyterApp):
         'config',
         'contents',
         'files',
+        'eventlog',
         'kernels',
         'kernelspecs',
         'nbconvert',
@@ -1817,6 +1829,20 @@ class ServerApp(JupyterApp):
             DeprecationWarning
         )
 
+    def init_eventlog(self):
+        self.eventlog = EventLog(parent=self)
+        # Register schemas for notebook services.
+        for file_path in get_schema_files():
+            self.eventlog.register_schema_file(file_path)
+
+        for file in get_client_schema_files():
+            with importlib_resources.as_file(file) as f:
+                try:
+                    self.eventlog.register_schema_file(f)
+                except:
+                    pass
+
+
     @catch_config_error
     def initialize(self, argv=None, find_extensions=True, new_httpserver=True, starter_extension=None):
         """Initialize the Server application class, configurables, web application, and http server.
@@ -1846,6 +1872,7 @@ class ServerApp(JupyterApp):
         if find_extensions:
             self.find_server_extensions()
         self.init_logging()
+        self.init_eventlog()
         self.init_server_extensions()
 
         # Special case the starter extension and load

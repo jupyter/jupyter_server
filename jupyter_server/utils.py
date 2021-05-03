@@ -9,10 +9,20 @@ import inspect
 import os
 import sys
 from distutils.version import LooseVersion
+from itertools import chain
 
 from urllib.parse import quote, unquote, urlparse, urljoin
 from urllib.request import pathname2url
 
+if sys.version_info >= (3, 8):
+    from importlib.metadata import entry_points
+else:
+    from importlib_metadata import entry_points
+
+if sys.version_info >= (3, 9):
+    import importlib.resources as importlib_resources
+else:
+    import importlib_resources
 
 
 def url_path_join(*pieces):
@@ -222,3 +232,70 @@ def run_sync(maybe_async):
                 raise e
         return result
     return wrapped()
+
+
+def eventlogging_schema_fqn(name):
+    """
+    Return fully qualified event schema name
+
+    Matches convention for this particular repo
+    """
+    return 'eventlogging.jupyter.org/jupyter_server/{}'.format(name)
+
+
+def get_schema_files():
+    """Yield a sequence of event schemas for jupyter services."""
+    # Hardcode path to event schemas directory.
+    event_schemas_dir = os.path.join(os.path.dirname(__file__), 'event-schemas')
+    #schema_files = []
+    # Recursively register all .json files under event-schemas
+    for dirname, _, files in os.walk(event_schemas_dir):
+        for file in files:
+            if file.endswith('.yaml'):
+                file_path = os.path.join(dirname, file)
+                yield file_path
+
+
+JUPYTER_TELEMETRY_ENTRY_POINT = 'jupyter_telemetry'
+
+
+def get_client_schema_files():
+    telemetry_entry_points = entry_points().get(JUPYTER_TELEMETRY_ENTRY_POINT, [])
+
+    dirs = (_safe_entry_point_load(ep) for ep in telemetry_entry_points)
+    dirs = chain.from_iterable(d for d in dirs if d is not None)
+    dirs = (_safe_load_resource(d) for d in dirs)
+
+    files = chain.from_iterable(d.iterdir() for d in dirs if d is not None)
+
+    return (
+        f for f in files
+        if f.is_file() and os.path.splitext(f.name)[1] in ('.json', '.yaml', '.yml')
+    )
+
+
+def _is_iterable(x):
+    try:
+        iter(x)
+        return True
+    except TypeError:
+        return False
+
+
+def _safe_entry_point_load(ep):
+    try:
+        v = ep.load()
+        if isinstance(v, str):
+            return [v]
+        elif _is_iterable(v):
+            return v
+        return None
+    except:
+        return None
+
+
+def _safe_load_resource(x):
+    try:
+        return importlib_resources.files(x)
+    except ModuleNotFoundError:
+        return None
