@@ -77,7 +77,9 @@ extensions = [
     'IPython.sphinxext.ipython_console_highlighting',
     'sphinxcontrib_github_alt',
     'sphinxcontrib.openapi',
-    'sphinxemoji.sphinxemoji'
+    'sphinxemoji.sphinxemoji',
+    'sphinx-jsonschema',
+    'jupyter_telemetry_sphinxext'
 ]
 
 myst_enable_extensions = ["html_image"]
@@ -215,6 +217,12 @@ html_logo = "_static/jupyter_server_logo.svg"
 #       _static directory. Do not remove or comment out html_static_path
 #       since it is needed to properly generate _static in the build directory
 html_static_path = ['_static']
+
+html_context = {
+    'css_files': [
+            '_static/theme_overrides.css',  # override wide tables in RTD theme
+        ],
+}
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -380,6 +388,11 @@ spelling_word_list_filename='spelling_wordlist.txt'
 # import before any doc is built, so _ is guaranteed to be injected
 import jupyter_server.transutils
 
+# Jupyter telemetry configuration values.
+jupyter_telemetry_schema_source = osp.join(HERE, '../../jupyter_server/event_schemas')
+jupyter_telemetry_schema_output = osp.join(HERE, 'operators/events')
+# Title of the index page that lists all found schemas
+jupyter_telemetry_index_title = 'Telemetry Event Schemas'
 
 def setup(app):
     dest = osp.join(HERE, 'other', 'changelog.md')

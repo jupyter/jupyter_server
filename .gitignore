@@ -1,4 +1,5 @@
 MANIFEST
+docs/source/operators/events
 build
 dist
 _build
@@ -6,6 +7,7 @@ docs/man/*.gz
 docs/source/api/generated
 docs/source/config.rst
 docs/gh-pages
+docs/source/events
 jupyter_server/i18n/*/LC_MESSAGES/*.mo
 jupyter_server/i18n/*/LC_MESSAGES/nbjs.json
 jupyter_server/static/style/*.min.css*
@@ -36,4 +38,3 @@ config.rst
 
 # copied changelog file
 docs/source/other/changelog.md
-

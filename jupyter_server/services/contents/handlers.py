@@ -5,14 +5,18 @@ Preliminary documentation at https://github.com/ipython/ipython/wiki/IPEP-27%3A-
 
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-
+import os
 import json
 
 from tornado import web
-
-from jupyter_server.utils import url_path_join, url_escape, ensure_async
 from jupyter_client.jsonutil import date_default
 
+from jupyter_server.utils import (
+    url_path_join,
+    url_escape,
+    ensure_async,
+    eventlogging_schema_fqn
+)
 from jupyter_server.base.handlers import (
     JupyterHandler, APIHandler, path_regex,
 )
@@ -111,6 +115,11 @@ class ContentsHandler(APIHandler):
             path=path, type=type, format=format, content=content,
         ))
         validate_model(model, expect_content=content)
+        self.eventlog.record_event(
+            eventlogging_schema_fqn('contentsmanager-actions'),
+            1,
+            { 'action': 'get', 'path': model['path'] }
+        )
         self._finish_model(model, location=False)
 
     @web.authenticated
@@ -122,7 +131,17 @@ class ContentsHandler(APIHandler):
             raise web.HTTPError(400, u'JSON body missing')
         model = await ensure_async(cm.update(model, path))
         validate_model(model, expect_content=False)
+        self.eventlog.record_event(
+            eventlogging_schema_fqn('contentsmanager-actions'),
+            1,
+            {
+                'action': 'rename',
+                'path': model['path'],
+                'source_path': path.lstrip(os.path.sep)
+            }
+        )
         self._finish_model(model)
+
 
     async def _copy(self, copy_from, copy_to=None):
         """Copy a file, optionally specifying a target directory."""
@@ -133,6 +152,15 @@ class ContentsHandler(APIHandler):
         model = await ensure_async(self.contents_manager.copy(copy_from, copy_to))
         self.set_status(201)
         validate_model(model, expect_content=False)
+        self.eventlog.record_event(
+            eventlogging_schema_fqn('contentsmanager-actions'),
+            1,
+            {
+                'action': 'copy',
+                'path': model['path'],
+                'source_path': copy_from.lstrip(os.path.sep)
+            }
+        )
         self._finish_model(model)
 
     async def _upload(self, model, path):
@@ -141,6 +169,11 @@ class ContentsHandler(APIHandler):
         model = await ensure_async(self.contents_manager.new(model, path))
         self.set_status(201)
         validate_model(model, expect_content=False)
+        self.eventlog.record_event(
+            eventlogging_schema_fqn('contentsmanager-actions'),
+            1,
+            { 'action': 'upload', 'path': model['path'] }
+        )
         self._finish_model(model)
 
     async def _new_untitled(self, path, type='', ext=''):
@@ -150,6 +183,11 @@ class ContentsHandler(APIHandler):
             path=path, type=type, ext=ext))
         self.set_status(201)
         validate_model(model, expect_content=False)
+        self.eventlog.record_event(
+            eventlogging_schema_fqn('contentsmanager-actions'), 1,
+            # Set path to path of created object, not directory it was created in
+            { 'action': 'create', 'path': model['path'] }
+        )
         self._finish_model(model)
 
     async def _save(self, model, path):
@@ -159,6 +197,11 @@ class ContentsHandler(APIHandler):
             self.log.info(u"Saving file at %s", path)
         model = await ensure_async(self.contents_manager.save(model, path))
         validate_model(model, expect_content=False)
+        self.eventlog.record_event(
+            eventlogging_schema_fqn('contentsmanager-actions'),
+            1,
+            { 'action': 'save', 'path': model['path'] }
+        )
         self._finish_model(model)
 
     @web.authenticated
@@ -228,6 +271,10 @@ class ContentsHandler(APIHandler):
         self.log.warning('delete %s', path)
         await ensure_async(cm.delete(path))
         self.set_status(204)
+        self.eventlog.record_event(
+            eventlogging_schema_fqn('contentsmanager-actions'), 1,
+            { 'action': 'delete', 'path': path.lstrip(os.path.sep) }
+        )
         self.finish()
 
 

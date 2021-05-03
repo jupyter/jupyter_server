@@ -10,9 +10,13 @@ import os
 import sys
 from distutils.version import LooseVersion
 
+if sys.version_info >= (3, 9):
+    import importlib.resources as importlib_resources
+else:
+    import importlib_resources
+
 from urllib.parse import quote, unquote, urlparse, urljoin
 from urllib.request import pathname2url
-
 
 
 def url_path_join(*pieces):
@@ -222,3 +226,29 @@ def run_sync(maybe_async):
                 raise e
         return result
     return wrapped()
+
+
+def eventlogging_schema_fqn(name):
+    """
+    Return fully qualified event schema name
+
+    Matches convention for this particular repo
+    """
+    return 'eventlogging.jupyter.org/jupyter_server/{}'.format(name)
+
+
+def list_resources(resources):
+    for entry in resources.iterdir():
+        if entry.is_dir():
+            yield from list_resources(entry)
+        else:
+            yield entry
+
+
+def get_schema_files():
+    """Yield a sequence of event schemas for jupyter services."""
+    return (
+        entry for entry in list_resources(
+            importlib_resources.files('jupyter_server.event_schemas')
+        ) if os.path.splitext(entry.name)[1] == '.yaml'
+    )

@@ -9,6 +9,9 @@ include package.json
 # include everything in package_data
 recursive-include jupyter_server *
 
+# Event Schemas
+graft jupyter_server/event_schemas
+
 # Documentation
 graft docs
 exclude docs/\#*
